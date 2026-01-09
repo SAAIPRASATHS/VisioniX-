@@ -1,13 +1,3 @@
-"""
-Statistella Round 2 - IMPROVED Pipeline
-========================================
-Enhancements:
-- 5-Fold Cross-Validation
-- LightGBM + XGBoost Ensemble
-- Additional text features
-- Hyperparameter optimization
-"""
-
 import pandas as pd
 import numpy as np
 import warnings
@@ -29,18 +19,12 @@ print("=" * 60)
 print("STATISTELLA ROUND 2 - IMPROVED PIPELINE")
 print("=" * 60)
 
-# ============================================================
-# 1. DATA LOADING
-# ============================================================
 print("\n[*] Loading datasets...")
 train = pd.read_csv('bash-8-0-round-2/train.csv')
 test = pd.read_csv('bash-8-0-round-2/test.csv')
 print("[+] Train shape:", train.shape)
 print("[+] Test shape:", test.shape)
 
-# ============================================================
-# 2. DATA CLEANING
-# ============================================================
 print("\n[*] Cleaning data...")
 
 text_cols = ['Headline', 'Reasoning', 'Key Insights', 'Tags']
@@ -70,18 +54,13 @@ for col in list_cols:
 
 print("[+] Data cleaned")
 
-# ============================================================
-# 3. FEATURE ENGINEERING (Enhanced)
-# ============================================================
 print("\n[*] Creating features...")
 
-# TF-IDF Features
 all_headlines = pd.concat([train['Headline_clean'], test['Headline_clean']])
 all_insights = pd.concat([train['Key Insights_clean'], test['Key Insights_clean']])
 all_reasoning = pd.concat([train['Reasoning_clean'], test['Reasoning_clean']])
 all_tags = pd.concat([train['Tags_clean'], test['Tags_clean']])
 
-# Increased features for better coverage
 tfidf_headline = TfidfVectorizer(max_features=600, ngram_range=(1, 2), min_df=2)
 tfidf_insights = TfidfVectorizer(max_features=1200, ngram_range=(1, 2), min_df=2)
 tfidf_reasoning = TfidfVectorizer(max_features=600, ngram_range=(1, 2), min_df=2)
@@ -104,7 +83,6 @@ test_tags_tfidf = tfidf_tags.transform(test['Tags_clean'])
 print("[+] TF-IDF features:", train_headline_tfidf.shape[1] + train_insights_tfidf.shape[1] + 
       train_reasoning_tfidf.shape[1] + train_tags_tfidf.shape[1])
 
-# MultiLabel Encoding
 all_lead_types = train['Lead Types_list'].tolist() + test['Lead Types_list'].tolist()
 all_power_mentions = train['Power Mentions_list'].tolist() + test['Power Mentions_list'].tolist()
 all_agencies = train['Agencies_list'].tolist() + test['Agencies_list'].tolist()
@@ -126,52 +104,42 @@ test_agency_enc = mlb_agency.transform(test['Agencies_list'])
 
 print("[+] Multilabel features:", train_lead_enc.shape[1] + train_power_enc.shape[1] + train_agency_enc.shape[1])
 
-# ENHANCED Count Features
 def create_enhanced_features(df):
     features = pd.DataFrame()
     
-    # Text length features
     features['headline_len'] = df['Headline'].fillna('').apply(len)
     features['reasoning_len'] = df['Reasoning'].fillna('').apply(len)
     features['insights_len'] = df['Key Insights'].fillna('').apply(len)
     features['tags_len'] = df['Tags'].fillna('').apply(len)
     
-    # Word count features
     features['headline_words'] = df['Headline'].fillna('').apply(lambda x: len(str(x).split()))
     features['reasoning_words'] = df['Reasoning'].fillna('').apply(lambda x: len(str(x).split()))
     features['insights_words'] = df['Key Insights'].fillna('').apply(lambda x: len(str(x).split()))
     features['tags_words'] = df['Tags'].fillna('').apply(lambda x: len(str(x).split()))
     
-    # Sentence count features (NEW)
     features['headline_sentences'] = df['Headline'].fillna('').apply(lambda x: len(re.split(r'[.!?]', str(x))))
     features['reasoning_sentences'] = df['Reasoning'].fillna('').apply(lambda x: len(re.split(r'[.!?]', str(x))))
     features['insights_sentences'] = df['Key Insights'].fillna('').apply(lambda x: len(re.split(r'[.!?]', str(x))))
     
-    # Average word length (NEW)
     features['headline_avg_word_len'] = df['Headline'].fillna('').apply(
         lambda x: np.mean([len(w) for w in str(x).split()]) if str(x).split() else 0)
     features['reasoning_avg_word_len'] = df['Reasoning'].fillna('').apply(
         lambda x: np.mean([len(w) for w in str(x).split()]) if str(x).split() else 0)
     
-    # Entity count features
     features['lead_types_count'] = df['Lead Types_list'].apply(len)
     features['power_mentions_count'] = df['Power Mentions_list'].apply(len)
     features['agencies_count'] = df['Agencies_list'].apply(len)
     
-    # Total entities (NEW)
     features['total_entities'] = features['lead_types_count'] + features['power_mentions_count'] + features['agencies_count']
     
-    # Has entity flags
     features['has_lead_types'] = (features['lead_types_count'] > 0).astype(int)
     features['has_power_mentions'] = (features['power_mentions_count'] > 0).astype(int)
     features['has_agencies'] = (features['agencies_count'] > 0).astype(int)
     features['has_all_entities'] = ((features['has_lead_types'] + features['has_power_mentions'] + features['has_agencies']) == 3).astype(int)
     
-    # Ratios (NEW)
     features['reasoning_to_headline_ratio'] = features['reasoning_len'] / (features['headline_len'] + 1)
     features['insights_to_reasoning_ratio'] = features['insights_len'] / (features['reasoning_len'] + 1)
     
-    # Log transforms for skewed features (NEW)
     features['log_reasoning_len'] = np.log1p(features['reasoning_len'])
     features['log_lead_types_count'] = np.log1p(features['lead_types_count'])
     
@@ -181,7 +149,6 @@ train_counts = create_enhanced_features(train)
 test_counts = create_enhanced_features(test)
 print("[+] Enhanced count features:", train_counts.shape[1])
 
-# Combine All Features
 train_counts_sparse = csr_matrix(train_counts.values)
 test_counts_sparse = csr_matrix(test_counts.values)
 
@@ -200,9 +167,6 @@ X_test = hstack([
 y_train = train['Importance Score'].values
 print("[+] Total features:", X_train.shape[1])
 
-# ============================================================
-# 4. CROSS-VALIDATION WITH LIGHTGBM + XGBOOST ENSEMBLE
-# ============================================================
 print("\n" + "=" * 60)
 print("TRAINING WITH 5-FOLD CROSS-VALIDATION")
 print("=" * 60)
@@ -210,7 +174,6 @@ print("=" * 60)
 N_FOLDS = 5
 kf = KFold(n_splits=N_FOLDS, shuffle=True, random_state=42)
 
-# Optimized LightGBM parameters
 lgb_params = {
     'objective': 'regression',
     'metric': 'rmse',
@@ -229,7 +192,6 @@ lgb_params = {
     'random_state': 42
 }
 
-# XGBoost parameters
 xgb_params = {
     'objective': 'reg:squarederror',
     'eval_metric': 'rmse',
@@ -263,7 +225,6 @@ for fold, (train_idx, val_idx) in enumerate(kf.split(X_train)):
     y_tr = y_train[train_idx]
     y_val = y_train[val_idx]
     
-    # LightGBM
     lgb_train_data = lgb.Dataset(X_tr, label=y_tr)
     lgb_val_data = lgb.Dataset(X_val, label=y_val, reference=lgb_train_data)
     
@@ -285,7 +246,6 @@ for fold, (train_idx, val_idx) in enumerate(kf.split(X_train)):
     lgb_cv_scores.append(lgb_rmse)
     print(f"  LightGBM RMSE: {lgb_rmse:.4f}")
     
-    # XGBoost
     xgb_model = xgb.XGBRegressor(**xgb_params)
     xgb_model.fit(
         X_tr, y_tr,
@@ -300,9 +260,6 @@ for fold, (train_idx, val_idx) in enumerate(kf.split(X_train)):
     xgb_cv_scores.append(xgb_rmse)
     print(f"  XGBoost RMSE: {xgb_rmse:.4f}")
 
-# ============================================================
-# 5. ENSEMBLE & RESULTS
-# ============================================================
 print("\n" + "=" * 60)
 print("CROSS-VALIDATION RESULTS")
 print("=" * 60)
@@ -320,7 +277,6 @@ print(f"\nXGBoost:")
 print(f"  CV Mean RMSE: {xgb_mean_rmse:.4f} (+/- {np.std(xgb_cv_scores):.4f})")
 print(f"  OOF RMSE: {xgb_oof_rmse:.4f}")
 
-# Optimize blending weights
 print("\n[*] Optimizing ensemble weights...")
 best_weight = 0.5
 best_rmse = float('inf')
@@ -335,16 +291,12 @@ for w in np.arange(0.3, 0.8, 0.05):
 print(f"  Best LightGBM weight: {best_weight:.2f}")
 print(f"  Best XGBoost weight: {1 - best_weight:.2f}")
 
-# Final ensemble
 ensemble_oof = best_weight * lgb_oof + (1 - best_weight) * xgb_oof
 ensemble_rmse = np.sqrt(mean_squared_error(y_train, ensemble_oof))
 
 print(f"\n[SUCCESS] ENSEMBLE OOF RMSE: {ensemble_rmse:.4f}")
 print(f"[+] Improvement over baseline (4.0296): {4.0296 - ensemble_rmse:.4f}")
 
-# ============================================================
-# 6. GENERATE PREDICTIONS
-# ============================================================
 print("\n" + "=" * 60)
 print("GENERATING PREDICTIONS")
 print("=" * 60)
@@ -355,7 +307,6 @@ final_preds = np.clip(final_preds, 0, 100)
 print(f"[+] Generated {len(final_preds)} predictions")
 print(f"[+] Prediction range: [{final_preds.min():.2f}, {final_preds.max():.2f}]")
 
-# Save submission
 submission = pd.DataFrame({
     'id': test['id'],
     'Importance Score': final_preds

@@ -1,12 +1,3 @@
-"""
-Statistella Round 2 - Importance Score Prediction Pipeline
-============================================================
-B.A.S.H Data Analytics Competition - Kaggle Notebook
-
-Goal: Predict Importance Score (0-100) for legal documents using
-text features (TF-IDF) and categorical features with LightGBM.
-"""
-
 import pandas as pd
 import numpy as np
 import warnings
@@ -18,14 +9,11 @@ from sklearn.metrics import mean_squared_error
 import lightgbm as lgb
 from scipy.sparse import hstack, csr_matrix
 import matplotlib
-matplotlib.use('Agg')  # Non-interactive backend
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 warnings.filterwarnings('ignore')
 
-# ============================================================
-# 1. DATA LOADING
-# ============================================================
 print("=" * 60)
 print("STATISTELLA ROUND 2 - ML PIPELINE")
 print("=" * 60)
@@ -38,87 +26,63 @@ print("[+] Train shape:", train.shape)
 print("[+] Test shape:", test.shape)
 print("\nColumns:", list(train.columns))
 
-# ============================================================
-# 2. EXPLORATORY DATA ANALYSIS
-# ============================================================
 print("\n" + "=" * 60)
 print("EXPLORATORY DATA ANALYSIS")
 print("=" * 60)
 
-# Target distribution
 print("\nTarget 'Importance Score' Statistics:")
 print(train['Importance Score'].describe())
 
-# Missing values
 print("\nMissing Values in Train:")
 print(train.isnull().sum())
 
-# ============================================================
-# 3. DATA CLEANING
-# ============================================================
 print("\n" + "=" * 60)
 print("DATA CLEANING")
 print("=" * 60)
 
-# Text columns to process
 text_cols = ['Headline', 'Reasoning', 'Key Insights', 'Tags']
-# List-like categorical columns
 list_cols = ['Lead Types', 'Power Mentions', 'Agencies']
 
 def clean_text(text):
-    """Clean and normalize text."""
     if pd.isna(text):
         return ""
     text = str(text).lower()
-    # Remove special characters but keep spaces
     text = re.sub(r'[^a-zA-Z0-9\s]', ' ', text)
-    # Remove extra whitespace
     text = ' '.join(text.split())
     return text
 
 def parse_list_column(value):
-    """Parse semicolon or comma separated values."""
     if pd.isna(value) or value == '':
         return []
-    # Split by semicolon or comma
     items = re.split(r'[;,]', str(value))
     return [item.strip().lower() for item in items if item.strip()]
 
-# Clean text columns
 for col in text_cols:
     train[col + '_clean'] = train[col].apply(clean_text)
     test[col + '_clean'] = test[col].apply(clean_text)
     print("[+] Cleaned", col)
 
-# Parse list columns
 for col in list_cols:
     train[col + '_list'] = train[col].apply(parse_list_column)
     test[col + '_list'] = test[col].apply(parse_list_column)
     print("[+] Parsed", col)
 
-# ============================================================
-# 4. FEATURE ENGINEERING
-# ============================================================
 print("\n" + "=" * 60)
 print("FEATURE ENGINEERING")
 print("=" * 60)
 
-# --- 4.1 TF-IDF Features ---
 print("\n[*] Creating TF-IDF features...")
 
-# Combine train and test for consistent vectorization
 all_headlines = pd.concat([train['Headline_clean'], test['Headline_clean']])
 all_insights = pd.concat([train['Key Insights_clean'], test['Key Insights_clean']])
 all_reasoning = pd.concat([train['Reasoning_clean'], test['Reasoning_clean']])
 all_tags = pd.concat([train['Tags_clean'], test['Tags_clean']])
 
-# TF-IDF Vectorizers
 tfidf_headline = TfidfVectorizer(max_features=500, ngram_range=(1, 2), min_df=3)
 tfidf_insights = TfidfVectorizer(max_features=1000, ngram_range=(1, 2), min_df=3)
 tfidf_reasoning = TfidfVectorizer(max_features=500, ngram_range=(1, 2), min_df=3)
 tfidf_tags = TfidfVectorizer(max_features=200, ngram_range=(1, 1), min_df=3)
 
-# Fit and transform
 tfidf_headline.fit(all_headlines)
 tfidf_insights.fit(all_insights)
 tfidf_reasoning.fit(all_reasoning)
@@ -141,10 +105,8 @@ print("[+] Key Insights TF-IDF:", train_insights_tfidf.shape[1], "features")
 print("[+] Reasoning TF-IDF:", train_reasoning_tfidf.shape[1], "features")
 print("[+] Tags TF-IDF:", train_tags_tfidf.shape[1], "features")
 
-# --- 4.2 MultiLabel Encoding for List Columns ---
 print("\n[*] Encoding categorical list columns...")
 
-# Combine for fitting
 all_lead_types = train['Lead Types_list'].tolist() + test['Lead Types_list'].tolist()
 all_power_mentions = train['Power Mentions_list'].tolist() + test['Power Mentions_list'].tolist()
 all_agencies = train['Agencies_list'].tolist() + test['Agencies_list'].tolist()
@@ -170,30 +132,24 @@ print("[+] Lead Types:", train_lead_enc.shape[1], "unique labels")
 print("[+] Power Mentions:", train_power_enc.shape[1], "unique labels")
 print("[+] Agencies:", train_agency_enc.shape[1], "unique labels")
 
-# --- 4.3 Count-based Features ---
 print("\n[*] Creating count-based features...")
 
 def create_count_features(df):
-    """Create numerical features from text and list columns."""
     features = pd.DataFrame()
     
-    # Text length features
     features['headline_len'] = df['Headline'].fillna('').apply(len)
     features['reasoning_len'] = df['Reasoning'].fillna('').apply(len)
     features['insights_len'] = df['Key Insights'].fillna('').apply(len)
     features['tags_len'] = df['Tags'].fillna('').apply(len)
     
-    # Word count features
     features['headline_words'] = df['Headline'].fillna('').apply(lambda x: len(str(x).split()))
     features['reasoning_words'] = df['Reasoning'].fillna('').apply(lambda x: len(str(x).split()))
     features['insights_words'] = df['Key Insights'].fillna('').apply(lambda x: len(str(x).split()))
     
-    # Entity count features
     features['lead_types_count'] = df['Lead Types_list'].apply(len)
     features['power_mentions_count'] = df['Power Mentions_list'].apply(len)
     features['agencies_count'] = df['Agencies_list'].apply(len)
     
-    # Has entity flags
     features['has_lead_types'] = (features['lead_types_count'] > 0).astype(int)
     features['has_power_mentions'] = (features['power_mentions_count'] > 0).astype(int)
     features['has_agencies'] = (features['agencies_count'] > 0).astype(int)
@@ -204,14 +160,11 @@ train_counts = create_count_features(train)
 test_counts = create_count_features(test)
 print("[+] Created", train_counts.shape[1], "count-based features")
 
-# --- 4.4 Combine All Features ---
 print("\n[*] Combining all features...")
 
-# Convert count features to sparse
 train_counts_sparse = csr_matrix(train_counts.values)
 test_counts_sparse = csr_matrix(test_counts.values)
 
-# Stack all features horizontally
 X_train = hstack([
     train_headline_tfidf,
     train_insights_tfidf,
@@ -240,14 +193,10 @@ print("[+] Total training features:", X_train.shape[1])
 print("[+] Training samples:", X_train.shape[0])
 print("[+] Test samples:", X_test.shape[0])
 
-# ============================================================
-# 5. MODELING WITH LIGHTGBM
-# ============================================================
 print("\n" + "=" * 60)
 print("TRAINING LIGHTGBM MODEL")
 print("=" * 60)
 
-# Train/Validation Split
 X_tr, X_val, y_tr, y_val = train_test_split(
     X_train, y_train, test_size=0.2, random_state=42
 )
@@ -256,7 +205,6 @@ print("\nSplit sizes:")
 print("   Training:", X_tr.shape[0])
 print("   Validation:", X_val.shape[0])
 
-# LightGBM parameters
 lgb_params = {
     'objective': 'regression',
     'metric': 'rmse',
@@ -280,11 +228,9 @@ print("\nTraining with parameters:")
 for key, value in list(lgb_params.items())[:6]:
     print("  ", key, ":", value)
 
-# Create LightGBM datasets
 lgb_train = lgb.Dataset(X_tr, label=y_tr)
 lgb_val = lgb.Dataset(X_val, label=y_val, reference=lgb_train)
 
-# Train model
 print("\n[*] Training model...")
 model = lgb.train(
     lgb_params,
@@ -297,9 +243,8 @@ model = lgb.train(
     ]
 )
 
-# Validation predictions
 val_preds = model.predict(X_val)
-val_preds = np.clip(val_preds, 0, 100)  # Clip to valid range
+val_preds = np.clip(val_preds, 0, 100)
 
 val_rmse = np.sqrt(mean_squared_error(y_val, val_preds))
 
@@ -308,14 +253,10 @@ print("VALIDATION RESULTS")
 print("=" * 60)
 print("[SUCCESS] Validation RMSE:", round(val_rmse, 4))
 
-# ============================================================
-# 6. FEATURE IMPORTANCE
-# ============================================================
 print("\n" + "=" * 60)
 print("FEATURE IMPORTANCE (Top 20)")
 print("=" * 60)
 
-# Create feature names
 feature_names = (
     [f'headline_tfidf_{i}' for i in range(train_headline_tfidf.shape[1])] +
     [f'insights_tfidf_{i}' for i in range(train_insights_tfidf.shape[1])] +
@@ -336,7 +277,6 @@ importance_df = pd.DataFrame({
 for idx, row in importance_df.iterrows():
     print("  ", row['feature'][:40].ljust(40), ":", round(row['importance'], 2))
 
-# Save importance plot
 try:
     plt.figure(figsize=(10, 8))
     plt.barh(importance_df['feature'].values[::-1], importance_df['importance'].values[::-1])
@@ -348,22 +288,16 @@ try:
 except Exception as e:
     print("\n[!] Could not save feature importance plot:", str(e))
 
-# ============================================================
-# 7. GENERATE PREDICTIONS FOR TEST SET
-# ============================================================
 print("\n" + "=" * 60)
 print("GENERATING PREDICTIONS")
 print("=" * 60)
 
 test_preds = model.predict(X_test)
-test_preds = np.clip(test_preds, 0, 100)  # Ensure values are in valid range
+test_preds = np.clip(test_preds, 0, 100)
 
 print("[+] Generated", len(test_preds), "predictions")
 print("[+] Prediction range: [", round(test_preds.min(), 2), ",", round(test_preds.max(), 2), "]")
 
-# ============================================================
-# 8. CREATE SUBMISSION FILE
-# ============================================================
 print("\n" + "=" * 60)
 print("CREATING SUBMISSION FILE")
 print("=" * 60)
