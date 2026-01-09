@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data files (optional - uncomment if you don't want to track large datasets)
+# bash-8-0-round-2/*.csv
+
+# Kaggle
+kaggle.json
+
+# OS
+.DS_Store
+Thumbs.db
