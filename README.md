@@ -4,6 +4,8 @@
 
 A complete end-to-end Machine Learning pipeline for predicting **Importance Score (0-100)** for legal documents in the Statistella Round 2 competition.
 
+---
+
 ## 📋 Project Overview
 
 This project implements a robust ML pipeline using **LightGBM** with extensive feature engineering to predict document importance scores based on textual and categorical features.
@@ -11,27 +13,32 @@ This project implements a robust ML pipeline using **LightGBM** with extensive f
 ### Key Features
 
 - **Text Feature Engineering**: TF-IDF vectorization on document titles, keywords, and descriptions
-- **Categorical Encoding**: Label encoding for categorical variables (state, court, case type)
-- **Count-based Features**: Citation counts, keyword frequencies, topic distributions
+- **Categorical Encoding**: MultiLabel encoding for categorical variables
+- **Count-based Features**: Text length, word counts, entity frequencies
 - **Advanced Regression**: LightGBM with early stopping and hyperparameter tuning
-- **Ensemble Ready**: Multiple model variants for potential stacking
+- **Ensemble Model**: LightGBM + XGBoost ensemble (improved version)
+
+---
 
 ## 📁 Project Structure
 
 ```
 VisioniX/
 ├── bash-8-0-round-2/
-│   ├── train.csv           # Training dataset
-│   └── test.csv            # Test dataset
-├── statistella_pipeline.py # Main ML pipeline
-├── statistella_improved.py # Enhanced version with additional features
-├── submission.csv          # Kaggle submission file
-├── feature_importance.png  # Feature importance visualization
-├── requirements.txt        # Python dependencies
-└── README.md              # This file
+│   ├── train.csv              # Training dataset (20,624 samples)
+│   └── test.csv               # Test dataset (5,157 samples)
+├── statistella_pipeline.py    # Main ML pipeline (LightGBM)
+├── statistella_improved.py    # Enhanced pipeline (LightGBM + XGBoost ensemble)
+├── statistella_notebook.ipynb # Kaggle notebook version
+├── submission.csv             # Kaggle submission file
+├── feature_importance.png     # Feature importance visualization
+├── requirements.txt           # Python dependencies
+└── README.md                  # This file
 ```
 
-## 🚀 Quick Start
+---
+
+## 🚀 How to Run
 
 ### Prerequisites
 
@@ -39,56 +46,88 @@ VisioniX/
 pip install -r requirements.txt
 ```
 
-### Run the Pipeline
+### Option 1: Run Basic Pipeline
 
 ```bash
 python statistella_pipeline.py
 ```
 
-### Or use the improved version
+### Option 2: Run Improved Ensemble Pipeline
 
 ```bash
 python statistella_improved.py
 ```
 
+### Option 3: Use Kaggle Notebook
+
+1. Upload `statistella_notebook.ipynb` to Kaggle
+2. Add the competition dataset
+3. Run all cells
+4. Submit the generated `submission.csv`
+
+---
+
 ## 📊 Model Performance
 
-| Metric | Value |
-|--------|-------|
-| Best Iteration | 813 |
-| Training RMSE | ~1.55 |
-| Validation RMSE | ~4.04 |
+| Model | Validation RMSE |
+|-------|-----------------|
+| LightGBM (Basic) | ~4.04 |
+| LightGBM + XGBoost Ensemble | ~3.95 |
+
+---
 
 ## 🔧 Tech Stack
 
 - **Python 3.8+**
 - **LightGBM** - Gradient Boosting Framework
+- **XGBoost** - Extreme Gradient Boosting (Ensemble)
 - **Pandas** - Data Manipulation
 - **Scikit-learn** - TF-IDF & Preprocessing
 - **NumPy** - Numerical Computing
-- **Matplotlib** - Visualization
 
-## 📈 Feature Engineering
+---
 
-1. **TF-IDF Features**: Extracted from document titles, keywords, and descriptions
-2. **Label Encoding**: State, court type, case type encoding
-3. **Count Features**: Number of citations, keywords, topics
-4. **Text Statistics**: Word counts, character lengths
-5. **Frequency Features**: Keyword and topic frequencies
+## 📈 Feature Engineering Details
 
-## 📝 Output
+| Feature Type | Description | Count |
+|--------------|-------------|-------|
+| TF-IDF (Headline) | Unigrams & Bigrams | 500 |
+| TF-IDF (Key Insights) | Unigrams & Bigrams | 1000 |
+| TF-IDF (Reasoning) | Unigrams & Bigrams | 500 |
+| TF-IDF (Tags) | Unigrams | 200 |
+| MultiLabel (Lead Types) | Binary encoding | Variable |
+| MultiLabel (Power Mentions) | Binary encoding | Variable |
+| MultiLabel (Agencies) | Binary encoding | Variable |
+| Count Features | Text lengths, word counts | 13 |
 
-The pipeline generates:
-- `submission.csv` - Kaggle-ready predictions with ID and Importance Score
-- `feature_importance.png` - Visual representation of feature importance
+---
+
+## 📝 Submission Format
+
+The output `submission.csv` follows the required format:
+
+```csv
+id,Importance Score
+21292,4.35
+16024,6.45
+10203,12.04
+...
+```
+
+- **id**: Document identifier
+- **Importance Score**: Predicted value (0-100)
+
+---
 
 ## 👨‍💻 Author
 
 **SAAIPRASATH S**
 
-## 📄 License
+---
 
-This project is for the B.A.S.H Data Analytics Competition (Statistella Round 2).
+## 📄 Competition
+
+**Statistella – B.A.S.H Round 2** | Kaggle Data Analytics Competition
 
 ---
 
